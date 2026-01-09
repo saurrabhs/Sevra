@@ -1,0 +1,8 @@
+{
+  "name": "demo-vulnerable-project",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
