@@ -55,6 +55,7 @@ function scoreLabel(score: number) {
 
 export default function ScanPage({ autoRun }: { autoRun: number }) {
   const [loading, setLoading] = useState(false);
+  const [aiLoadingId, setAiLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ScanResponse | null>(null);
   const [aiOpen, setAiOpen] = useState(true);
@@ -85,6 +86,29 @@ export default function ScanPage({ autoRun }: { autoRun: number }) {
       setData(null);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function explainFinding(findingId: string) {
+    setAiLoadingId(findingId);
+    setError(null);
+    try {
+      const res = await fetch('/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ explainFindingId: findingId }),
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || `HTTP ${res.status}`);
+      }
+      const json = (await res.json()) as ScanResponse;
+      setData(json);
+      setAiOpen(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAiLoadingId(null);
     }
   }
 
@@ -229,12 +253,21 @@ export default function ScanPage({ autoRun }: { autoRun: number }) {
                             {f.file}:{f.line}
                           </div>
                         </div>
-                        <div
-                          className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs ${severityClasses(
-                            f.severity
-                          )}`}
-                        >
-                          {f.severity}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div
+                            className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-xs ${severityClasses(
+                              f.severity
+                            )}`}
+                          >
+                            {f.severity}
+                          </div>
+                          <button
+                            className="inline-flex items-center justify-center rounded-lg bg-white/5 px-3 py-2 text-xs font-medium text-white/80 ring-1 ring-white/10 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => explainFinding(f.id)}
+                            disabled={aiLoadingId === f.id || loading}
+                          >
+                            {aiLoadingId === f.id ? 'Asking Gemini…' : 'Fix with Gemini'}
+                          </button>
                         </div>
                       </div>
 
