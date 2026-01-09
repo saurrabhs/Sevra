@@ -3,7 +3,9 @@ import path from 'node:path';
 
 import { getGeminiExplanation } from './gemini.js';
 
-const DEMO_PROJECT_DIR = path.resolve(process.cwd(), 'demo-project');
+function getDemoProjectDir() {
+  return path.resolve(process.cwd(), 'demo-project');
+}
 
 function severityWeight(severity) {
   switch (severity) {
@@ -38,11 +40,11 @@ async function listFilesRecursively(dir) {
   return out;
 }
 
-function relDemoPath(filePath) {
-  return path.relative(DEMO_PROJECT_DIR, filePath).replaceAll('\\', '/');
+function relDemoPath(filePath, demoDir) {
+  return path.relative(demoDir, filePath).replaceAll('\\', '/');
 }
 
-function findUnprotectedExpressEndpoints(content, filePath) {
+function findUnprotectedExpressEndpoints(content, filePath, demoDir) {
   const findings = [];
 
   const lines = content.split(/\r?\n/);
@@ -64,10 +66,10 @@ function findUnprotectedExpressEndpoints(content, filePath) {
       const looksProtected = /\b(requireAuth|auth|authenticate|ensureAuthenticated)\b/.test(args);
       if (!looksProtected) {
         findings.push({
-          id: `unprotected-endpoint:${relDemoPath(filePath)}:${i + 1}:${routePath}`,
+          id: `unprotected-endpoint:${relDemoPath(filePath, demoDir)}:${i + 1}:${routePath}`,
           title: 'Unprotected API endpoint',
           severity: 'High',
-          file: relDemoPath(filePath),
+          file: relDemoPath(filePath, demoDir),
           line: i + 1,
           snippet: line.trim().slice(0, 240),
           meta: { route: routePath },
@@ -79,7 +81,7 @@ function findUnprotectedExpressEndpoints(content, filePath) {
   return findings;
 }
 
-function findHardcodedSecrets(content, filePath) {
+function findHardcodedSecrets(content, filePath, demoDir) {
   const findings = [];
   const lines = content.split(/\r?\n/);
 
@@ -100,10 +102,10 @@ function findHardcodedSecrets(content, filePath) {
 
       if (looksLikeKey) {
         findings.push({
-          id: `hardcoded-secret:${relDemoPath(filePath)}:${i + 1}:${varName}`,
+          id: `hardcoded-secret:${relDemoPath(filePath, demoDir)}:${i + 1}:${varName}`,
           title: 'Hardcoded secret in source code',
           severity: 'Critical',
-          file: relDemoPath(filePath),
+          file: relDemoPath(filePath, demoDir),
           line: i + 1,
           snippet: line.trim().slice(0, 240),
           meta: { variable: varName },
@@ -114,10 +116,10 @@ function findHardcodedSecrets(content, filePath) {
     // Also detect common key shapes in string literals
     if (/(sk-[A-Za-z0-9]{16,})|(AKIA[0-9A-Z]{16})|(AIza[0-9A-Za-z\-_]{20,})/.test(line)) {
       findings.push({
-        id: `hardcoded-secret-pattern:${relDemoPath(filePath)}:${i + 1}`,
+        id: `hardcoded-secret-pattern:${relDemoPath(filePath, demoDir)}:${i + 1}`,
         title: 'Potential hardcoded API key',
         severity: 'High',
-        file: relDemoPath(filePath),
+        file: relDemoPath(filePath, demoDir),
         line: i + 1,
         snippet: line.trim().slice(0, 240),
         meta: {},
@@ -128,7 +130,7 @@ function findHardcodedSecrets(content, filePath) {
   return findings;
 }
 
-function findDangerousFunctions(content, filePath) {
+function findDangerousFunctions(content, filePath, demoDir) {
   const findings = [];
   const lines = content.split(/\r?\n/);
 
@@ -146,10 +148,10 @@ function findDangerousFunctions(content, filePath) {
       if (p.re.test(line)) {
         const severity = p.severity;
         findings.push({
-          id: `dangerous:${relDemoPath(filePath)}:${i + 1}:${p.title}`,
+          id: `dangerous:${relDemoPath(filePath, demoDir)}:${i + 1}:${p.title}`,
           title: p.title,
           severity,
-          file: relDemoPath(filePath),
+          file: relDemoPath(filePath, demoDir),
           line: i + 1,
           snippet: line.trim().slice(0, 240),
           meta: {},
@@ -160,10 +162,10 @@ function findDangerousFunctions(content, filePath) {
     // Lightweight "unsanitized input" signal if req.query/body flows into eval/exec in same line
     if (/\b(req\.(query|body|params)\b)/.test(line) && /(eval\s*\(|exec(Sync)?\s*\()/.test(line)) {
       findings.push({
-        id: `unsanitized-input:${relDemoPath(filePath)}:${i + 1}`,
+        id: `unsanitized-input:${relDemoPath(filePath, demoDir)}:${i + 1}`,
         title: 'Unsanitized input used in dangerous sink',
         severity: 'Critical',
-        file: relDemoPath(filePath),
+        file: relDemoPath(filePath, demoDir),
         line: i + 1,
         snippet: line.trim().slice(0, 240),
         meta: {},
@@ -174,12 +176,12 @@ function findDangerousFunctions(content, filePath) {
   return findings;
 }
 
-function scanFile(filePath, content) {
+function scanFile(filePath, content, demoDir) {
   const findings = [];
 
-  findings.push(...findUnprotectedExpressEndpoints(content, filePath));
-  findings.push(...findHardcodedSecrets(content, filePath));
-  findings.push(...findDangerousFunctions(content, filePath));
+  findings.push(...findUnprotectedExpressEndpoints(content, filePath, demoDir));
+  findings.push(...findHardcodedSecrets(content, filePath, demoDir));
+  findings.push(...findDangerousFunctions(content, filePath, demoDir));
 
   return findings;
 }
@@ -190,13 +192,14 @@ function pickFindingForAI(findings) {
 }
 
 export async function runScan(options = {}) {
-  const files = await listFilesRecursively(DEMO_PROJECT_DIR);
+  const demoDir = getDemoProjectDir();
+  const files = await listFilesRecursively(demoDir);
   const scanTargets = files.filter((f) => /\.(js|ts|jsx|tsx|json|env|yml|yaml)$/i.test(f));
 
   const findings = [];
   for (const filePath of scanTargets) {
     const content = await fs.readFile(filePath, 'utf8');
-    findings.push(...scanFile(filePath, content));
+    findings.push(...scanFile(filePath, content, demoDir));
   }
 
   const score = scoreFromFindings(findings);
