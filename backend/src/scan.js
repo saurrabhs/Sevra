@@ -189,7 +189,7 @@ function pickFindingForAI(findings) {
   return [...findings].sort((a, b) => (order[b.severity] ?? 0) - (order[a.severity] ?? 0))[0] ?? null;
 }
 
-export async function runScan() {
+export async function runScan(options = {}) {
   const files = await listFilesRecursively(DEMO_PROJECT_DIR);
   const scanTargets = files.filter((f) => /\.(js|ts|jsx|tsx|json|env|yml|yaml)$/i.test(f));
 
@@ -200,7 +200,10 @@ export async function runScan() {
   }
 
   const score = scoreFromFindings(findings);
-  const aiTarget = pickFindingForAI(findings);
+  const explainFindingId = typeof options?.explainFindingId === 'string' ? options.explainFindingId : null;
+  const aiTarget = explainFindingId
+    ? findings.find((f) => f.id === explainFindingId) ?? null
+    : pickFindingForAI(findings);
 
   const aiExplanation = aiTarget
     ? await getGeminiExplanation({

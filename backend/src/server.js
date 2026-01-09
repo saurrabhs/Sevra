@@ -14,9 +14,10 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/scan', async (_req, res) => {
+app.post('/scan', async (req, res) => {
   try {
-    const result = await runScan();
+    const explainFindingId = typeof req.body?.explainFindingId === 'string' ? req.body.explainFindingId : null;
+    const result = await runScan({ explainFindingId });
     res.json(result);
   } catch (err) {
     res.status(500).json({

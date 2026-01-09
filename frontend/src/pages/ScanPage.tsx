@@ -74,7 +74,7 @@ export default function ScanPage({ autoRun }: { autoRun: number }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      const res = await fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       if (!res.ok) {
         const t = await res.text();
         throw new Error(t || `HTTP ${res.status}`);
@@ -93,7 +93,7 @@ export default function ScanPage({ autoRun }: { autoRun: number }) {
     setAiLoadingId(findingId);
     setError(null);
     try {
-      const res = await fetch('/scan', {
+      const res = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ explainFindingId: findingId }),
