@@ -1,4 +1,4 @@
-# AI Internal Security Analyst (MVP- Stage)
+# AI Internal Security Analyst (MVP)
 
 End-to-end MVP that performs a **real** static scan on a demo backend project and uses **Gemini** to explain one detected issue.
 
