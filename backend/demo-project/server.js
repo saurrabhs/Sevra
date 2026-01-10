@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 
 // Hardcoded secret (intentional for demo)
-const API_KEY = "AIzaSyDUMMY_DEMO_KEY_SHOULD_NOT_BE_HARDCODED";
+const API_KEY = "sdfksajdfj saurbha dsfsdfksfk";
 
 // Unprotected endpoint (no auth middleware)
 app.get('/admin/export', (req, res) => {

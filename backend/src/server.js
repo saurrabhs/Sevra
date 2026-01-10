@@ -14,7 +14,24 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true });
+});
+
 app.post('/scan', async (req, res) => {
+  try {
+    const explainFindingId = typeof req.body?.explainFindingId === 'string' ? req.body.explainFindingId : null;
+    const result = await runScan({ explainFindingId });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({
+      error: 'Scan failed',
+      details: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+app.post('/api/scan', async (req, res) => {
   try {
     const explainFindingId = typeof req.body?.explainFindingId === 'string' ? req.body.explainFindingId : null;
     const result = await runScan({ explainFindingId });
